@@ -15,6 +15,8 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     df = pd.read_csv('Course_Completion_Prediction.csv')
+    # Convert Completed column to binary (1 for Completed, 0 for Not Completed)
+    df['Completed'] = (df['Completed'] == 'Completed').astype(int)
     return df
 
 # Main app
@@ -69,11 +71,12 @@ def main():
     st.markdown("---")
     
     # Create tabs for different visualizations
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📊 Demographics", 
         "🎓 Course Analytics", 
         "⏱️ Engagement Metrics",
         "💰 Payment Analysis",
+        "⚠️ Risk Prediction",
         "🔍 Data Explorer"
     ])
     
@@ -310,8 +313,219 @@ def main():
             fig_amount.update_traces(opacity=0.7)
             st.plotly_chart(fig_amount, use_container_width=True)
     
-    # Tab 5: Data Explorer
+    # Tab 5: Risk Prediction Panel
     with tab5:
+        st.subheader("⚠️ Student At-Risk Analysis & Prediction")
+        
+        # Calculate risk scores
+        filtered_df['risk_score'] = 0
+        
+        # Risk factors calculation
+        # Low engagement indicators
+        filtered_df.loc[filtered_df['Login_Frequency'] < filtered_df['Login_Frequency'].median(), 'risk_score'] += 1
+        filtered_df.loc[filtered_df['Video_Completion_Rate'] < 0.5, 'risk_score'] += 2
+        filtered_df.loc[filtered_df['Time_Spent_Hours'] < filtered_df['Time_Spent_Hours'].median(), 'risk_score'] += 1
+        filtered_df.loc[filtered_df['Average_Session_Duration_Min'] < 30, 'risk_score'] += 1
+        
+        # Academic performance indicators
+        filtered_df.loc[filtered_df['Quiz_Score_Avg'] < 60, 'risk_score'] += 2
+        filtered_df.loc[filtered_df['Assignments_Missed'] > 2, 'risk_score'] += 2
+        filtered_df.loc[filtered_df['Progress_Percentage'] < 50, 'risk_score'] += 2
+        
+        # Participation indicators
+        filtered_df.loc[filtered_df['Discussion_Participation'] == 0, 'risk_score'] += 1
+        filtered_df.loc[filtered_df['Days_Since_Last_Login'] > 7, 'risk_score'] += 2
+        
+        # Categorize risk levels
+        filtered_df['risk_level'] = pd.cut(
+            filtered_df['risk_score'], 
+            bins=[-1, 3, 6, 15], 
+            labels=['Low Risk', 'Medium Risk', 'High Risk']
+        )
+        
+        # Risk overview metrics
+        st.markdown("### 🎯 Risk Overview")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        high_risk_count = len(filtered_df[filtered_df['risk_level'] == 'High Risk'])
+        medium_risk_count = len(filtered_df[filtered_df['risk_level'] == 'Medium Risk'])
+        low_risk_count = len(filtered_df[filtered_df['risk_level'] == 'Low Risk'])
+        at_risk_rate = ((high_risk_count + medium_risk_count) / len(filtered_df) * 100)
+        
+        with col1:
+            st.metric("🔴 High Risk", high_risk_count, 
+                     delta=f"{high_risk_count/len(filtered_df)*100:.1f}%")
+        with col2:
+            st.metric("🟡 Medium Risk", medium_risk_count,
+                     delta=f"{medium_risk_count/len(filtered_df)*100:.1f}%")
+        with col3:
+            st.metric("🟢 Low Risk", low_risk_count,
+                     delta=f"{low_risk_count/len(filtered_df)*100:.1f}%")
+        with col4:
+            st.metric("⚠️ At-Risk Rate", f"{at_risk_rate:.1f}%")
+        
+        st.markdown("---")
+        
+        # Risk distribution visualization
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Risk level distribution pie chart
+            risk_dist = filtered_df['risk_level'].value_counts()
+            fig_risk_pie = px.pie(
+                values=risk_dist.values,
+                names=risk_dist.index,
+                title="Student Risk Distribution",
+                color=risk_dist.index,
+                color_discrete_map={
+                    'Low Risk': '#00CC96',
+                    'Medium Risk': '#FFA500',
+                    'High Risk': '#EF553B'
+                }
+            )
+            st.plotly_chart(fig_risk_pie, use_container_width=True)
+            
+            # Risk by course level
+            risk_by_level = pd.crosstab(
+                filtered_df['Course_Level'], 
+                filtered_df['risk_level'],
+                normalize='index'
+            ) * 100
+            
+            fig_level = px.bar(
+                risk_by_level,
+                title="Risk Distribution by Course Level (%)",
+                labels={'value': 'Percentage (%)', 'Course_Level': 'Course Level'},
+                color_discrete_map={
+                    'Low Risk': '#00CC96',
+                    'Medium Risk': '#FFA500',
+                    'High Risk': '#EF553B'
+                },
+                barmode='stack'
+            )
+            st.plotly_chart(fig_level, use_container_width=True)
+        
+        with col2:
+            # Risk score distribution
+            fig_score_dist = px.histogram(
+                filtered_df,
+                x='risk_score',
+                title="Risk Score Distribution",
+                labels={'risk_score': 'Risk Score', 'count': 'Number of Students'},
+                color='risk_level',
+                color_discrete_map={
+                    'Low Risk': '#00CC96',
+                    'Medium Risk': '#FFA500',
+                    'High Risk': '#EF553B'
+                }
+            )
+            st.plotly_chart(fig_score_dist, use_container_width=True)
+            
+            # Key risk factors
+            st.markdown("#### 🔍 Key Risk Factors")
+            risk_factors = {
+                '🔴 Critical (2 points)': [
+                    'Video Completion < 50%',
+                    'Quiz Average < 60',
+                    'Missed > 2 Assignments',
+                    'Progress < 50%',
+                    'Last Login > 7 days ago'
+                ],
+                '🟡 Moderate (1 point)': [
+                    'Low Login Frequency',
+                    'Low Time Spent',
+                    'Short Session Duration',
+                    'No Discussion Participation'
+                ]
+            }
+            
+            for severity, factors in risk_factors.items():
+                with st.expander(severity):
+                    for factor in factors:
+                        st.write(f"• {factor}")
+        
+        st.markdown("---")
+        
+        # High-risk students table
+        st.markdown("### 🚨 High-Risk Students (Action Required)")
+        
+        high_risk_students = filtered_df[filtered_df['risk_level'] == 'High Risk'].copy()
+        
+        if len(high_risk_students) > 0:
+            # Select relevant columns for display
+            display_cols = [
+                'Student_ID', 'Name', 'Course_Name', 'Progress_Percentage',
+                'Video_Completion_Rate', 'Quiz_Score_Avg', 'Assignments_Missed',
+                'Days_Since_Last_Login', 'risk_score', 'risk_level'
+            ]
+            
+            # Filter only existing columns
+            display_cols = [col for col in display_cols if col in high_risk_students.columns]
+            
+            high_risk_display = high_risk_students[display_cols].sort_values(
+                'risk_score', ascending=False
+            )
+            
+            st.dataframe(
+                high_risk_display.head(20).style.background_gradient(
+                    subset=['risk_score'], cmap='Reds'
+                ),
+                use_container_width=True
+            )
+            
+            # Download high-risk students
+            csv_high_risk = high_risk_display.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download High-Risk Students List",
+                data=csv_high_risk,
+                file_name="high_risk_students.csv",
+                mime="text/csv"
+            )
+        else:
+            st.success("✅ No high-risk students found!")
+        
+        st.markdown("---")
+        
+        # Intervention recommendations
+        st.markdown("### 💡 Recommended Interventions")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("#### 🔴 High Risk")
+            st.markdown("""
+            - **Immediate Action Required**
+            - Send personalized email/SMS
+            - Schedule 1-on-1 mentoring session
+            - Provide additional resources
+            - Offer extension on deadlines
+            - Connect with academic support
+            """)
+        
+        with col2:
+            st.markdown("#### 🟡 Medium Risk")
+            st.markdown("""
+            - **Monitor Closely**
+            - Send reminder notifications
+            - Encourage discussion participation
+            - Provide study guides
+            - Suggest study groups
+            - Share success tips
+            """)
+        
+        with col3:
+            st.markdown("#### 🟢 Low Risk")
+            st.markdown("""
+            - **Keep Engaged**
+            - Send progress updates
+            - Recognize achievements
+            - Offer advanced challenges
+            - Request peer mentoring
+            - Gather feedback
+            """)
+    
+    # Tab 6: Data Explorer
+    with tab6:
         st.subheader("Raw Data Explorer")
         
         # Display sample data
