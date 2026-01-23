@@ -1,0 +1,6 @@
+timestamp,prediction_id,model_version,input_features,prediction,prediction_probability,actual_outcome,prediction_correct,response_time_ms,model_accuracy,data_drift_score,feature_drift_detected,error_occurred,error_message,user_id,session_id
+2026-01-23 10:15:23,1,v1.0,"{'Age': 25, 'Study_Hours': 15, 'Attendance': 85}",1,0.87,,,,120,0.92,0.05,False,False,,USR001,SESS001
+2026-01-23 10:16:45,2,v1.0,"{'Age': 32, 'Study_Hours': 8, 'Attendance': 65}",0,0.35,,,,95,0.92,0.03,False,False,,USR002,SESS002
+2026-01-23 10:18:12,3,v1.0,"{'Age': 28, 'Study_Hours': 20, 'Attendance': 95}",1,0.93,,,,110,0.92,0.02,False,False,,USR003,SESS003
+2026-01-23 10:20:34,4,v1.0,"{'Age': 22, 'Study_Hours': 5, 'Attendance': 50}",0,0.28,,,,88,0.92,0.04,False,False,,USR004,SESS004
+2026-01-23 10:22:56,5,v1.0,"{'Age': 30, 'Study_Hours': 18, 'Attendance': 90}",1,0.91,,,,102,0.92,0.03,False,False,,USR005,SESS005
